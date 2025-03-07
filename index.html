@@ -3,48 +3,172 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.9/angular.min.js"></script>
     <title>Дані з зображення</title>
     <style>
-        #additionalPrompt {
-            width: 300px;
-            height: 50px;
+        /* Global Styles */
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f7fc;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        h1 {
+            color: #3f51b5;
+            margin-bottom: 20px;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 800px;
+            background-color: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .api-cfg {
+            margin-bottom: 20px;
+        }
+
+        label {
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        input, textarea, button, select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        input[type="password"], input[type="text"], input[type="file"], textarea {
+            background-color: #f9f9f9;
+        }
+
+        button {
+            background-color: #3f51b5;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #303f9f;
+        }
+
+        #result {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #fafafa;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
+
+        #result b {
+            font-size: 16px;
+            color: #333;
+        }
+
+        #result p {
+            font-size: 14px;
+            color: #555;
+        }
+
+        .loading {
+            color: #ff9800;
+            font-size: 16px;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        /* Responsive Styles */
+        @media (max-width: 768px) {
+            .container {
+                width: 100%;
+                padding: 15px;
+            }
+
+            h1 {
+                font-size: 24px;
+            }
+
+            button {
+                font-size: 14px;
+            }
+
+            #result {
+                font-size: 12px;
+            }
         }
     </style>
 </head>
 <body ng-app="myApp" ng-controller="myCtrl">
-<h1>Завантажити зображення</h1>
-<!--<button ng-click="downloadAdditionalPrompt()">Зберегти файл промпту</button>-->
-<label>Відкрити файл промпту <input type="file" id="additionalPromptFile"></label>
-<br>
-<br>
-<label> Додатковий промпт для ШІ</label>
-<br>
-<textarea id="additionalPrompt" ng-model="additionalPrompt"></textarea>
+<div class="container">
+    <h1>Завантажити зображення</h1>
 
-<br>
-<p ng-show="isLoading">Обробка зображення...</p>
+    <div class="api-cfg">
+        <label for="apiUrl">API URL:</label>
+        <input type="text" id="apiUrl" ng-model="api.url">
 
-<input type="file" id="imageInput" accept="image/*" multiple>
-<button ng-click="clear()">Очистити</button>
+        <label for="apiKey">API key:</label>
+        <input type="password" id="apiKey" ng-model="api.key">
+    </div>
 
-<div id="result" style="margin-top: 20px">
-    <b>Прізвище Ім'я Побатькові Дата народження</b>
-    <p><span ng-repeat="el in result">{{el.last_name}} {{el.first_name}} {{el.surname}} {{el.dob}}<br></span></p>
+    <label for="additionalPromptFile">Відкрити файл промпту</label>
+    <input type="file" id="additionalPromptFile">
+
+    <label for="additionalPrompt">Додатковий промпт для ШІ</label>
+    <textarea id="additionalPrompt" ng-model="additionalPrompt"></textarea>
+
+    <p ng-show="isLoading" class="loading">Обробка зображення...</p>
+
+    <label for="imageInput">Виберіть зображення</label>
+    <input type="file" id="imageInput" accept="image/*" multiple>
+    <button ng-click="clear()">Очистити</button>
+
+    <div id="result">
+        <b>Прізвище Ім'я Побатькові Дата народження</b>
+        <p><span ng-repeat="el in result">{{el.last_name}} {{el.first_name}} {{el.surname}} {{el.dob}}<br></span></p>
+    </div>
 </div>
 
 <script>
-    // Используем ваш API-ключ от xAI
-    const apiKey = "";
 
-    const mainPrompt = `Проаналізуй зображення та витягни всі текстові дані, що містять прізвище, ім’я, по батькові та дату народження осіб. Сформуй список без нумерації у форматі JSON: [{"last_name": "прізвище", "first_name": "ім'я",  "surname": "побатькові", "dob":"23.04.2001" }]"`;
+    const mainPrompt = `Вилучи і поверни Прізвище, Ім'я, побатькові, дату народженя у форматі дд.мм.гггг з тексту у зображенні у форматі JSON: [{"last_name": "прізвище", "first_name": "ім'я",  "surname": "побатькові", "dob":"23.04.2001" }]"`;
 
     var app = angular.module("myApp", []);
     app.controller("myCtrl", function ($scope) {
+
         $scope.file = null;
+
         $scope.result = [];
+
         $scope.isLoading = false;
+
         $scope.additionalPrompt = null;
+
+        $scope.api = {
+            key: "",
+            url: "https://openrouter.ai/api/v1/chat/completions"
+        };
 
         (async function() {
             try {
@@ -60,98 +184,109 @@
             } catch (error) {
                 console.log(error);
             }
-        }());
+        }())
 
-        const additionalPromptFileInput = document.querySelector("#additionalPromptFile");
+
+        const additionalPromptFileInput = document.querySelector("#additionalPromptFile")
 
         additionalPromptFileInput.addEventListener("change", (evt) => {
-            console.info("[Event] file chooser");
+            console.info ( "[Event] file chooser" );
 
-            let fl_files = evt.target.files; // JS FileList object
-            let fl_file = fl_files[0]; // use the 1st file from the list
+            let fl_files = evt.target.files;
 
-            let reader = new FileReader(); // built-in API
+            let fl_file = fl_files[0];
 
-            let display_file = (e) => { // set the contents of the <textarea>
-                $scope.additionalPrompt = e.target.result;
+            let reader = new FileReader();
+
+            let display_file = ( e ) => {
+                $scope.additionalPrompt =  e.target.result;
                 $scope.$apply();
                 evt.target.value = null;
             };
 
-            let on_reader_load = (fl) => {
-                console.info('. file reader load', fl);
-                return display_file; // a function
+            let on_reader_load = ( fl ) => {
+                console.info( '. file reader load', fl );
+                return display_file;
             };
 
-            reader.onload = on_reader_load(fl_file);
-            reader.readAsText(fl_file);
-        });
+            reader.onload = on_reader_load( fl_file );
+
+            reader.readAsText( fl_file );
+        })
+
+
 
         $scope.downloadAdditionalPrompt = function () {
-            const filename = "prompt.txt";
+            const filename = "prompt.txt"
             let element = document.createElement('a');
-            element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent($scope.additionalPrompt ? $scope.additionalPrompt : ''));
+            element.setAttribute('href', 'data:text/plain;charset=utf-8,'
+                + encodeURIComponent($scope.additionalPrompt ? $scope.additionalPrompt : ''));
             element.setAttribute('download', filename);
             element.click();
-        };
+
+        }
 
         $scope.clear = () => {
             $scope.result = [];
             document.getElementById('imageInput').value = null;
             $scope.file = null;
-        };
+        }
 
         async function fileListToBase64(fileList) {
             function getBase64(file) {
-                const reader = new FileReader();
+                const reader = new FileReader()
                 return new Promise(resolve => {
                     reader.onload = ev => {
-                        resolve(ev.target.result);
-                    };
-                    reader.readAsDataURL(file);
-                });
+                        resolve(ev.target.result)
+                    }
+                    reader.readAsDataURL(file)
+                })
             }
 
-            const promises = [];
+            const promises = []
+
             for (let i = 0; i < fileList.length; i++) {
-                promises.push(getBase64(fileList[i]));
+                promises.push(getBase64(fileList[i]))
             }
-            return await Promise.all(promises);
+
+            return await Promise.all(promises)
         }
 
         async function processImage() {
             const input = document.getElementById('imageInput');
 
             $scope.isLoading = true;
-            $scope.$apply();
-            const dataUrls = await fileListToBase64(input.files);
+            $scope.$apply()
+            const dataUrls = await fileListToBase64(input.files)
 
             for (let i = 0; i < dataUrls.length; i++) {
                 const dataURL = dataUrls[i];
-                let response = await sendImageToGrok(dataURL, apiKey); // Используем обновленную функцию
+                let response = await sendImageToAI(dataURL, $scope.api.url, $scope.api.key)
                 const responseData = JSON.parse(response);
 
-                const content = responseData.choices[0].message.content;
+                const content = responseData.choices[0].message.content
                 const openInd = content.indexOf("[");
                 const closeInd = content.lastIndexOf("]");
 
                 const contentJson = content.substring(openInd, closeInd + 1);
                 $scope.result = $scope.result.concat(JSON.parse(contentJson));
                 document.getElementById('imageInput').value = null;
-                $scope.file = null;
-                $scope.$apply();
+                $scope.file = null
+                $scope.$apply()
             }
 
             $scope.isLoading = false;
-            $scope.$apply();
+            $scope.$apply()
+
         }
 
         document.getElementById('imageInput').addEventListener('change', () => {
-            processImage();
-        });
+            processImage()
+        })
 
-        async function sendImageToGrok(dataURL, apiKey) {
-            const requestUrl = "https://my-proxy.kyrylov-olexandr.workers.dev/"; // Новый URL для xAI
+
+        async function sendImageToAI(dataURL, apiUrl, apiKey) {
+            const requestUrl = apiUrl;
             const messages = [
                 {
                     "role": "system",
@@ -159,10 +294,10 @@
                         {
                             "type": "text",
                             "text": `${mainPrompt}`
-                        }
+                        },
                     ]
                 }
-            ];
+            ]
 
             if ($scope.additionalPrompt) {
                 messages.push(
@@ -172,10 +307,10 @@
                             {
                                 "type": "text",
                                 "text": `${$scope.additionalPrompt}`
-                            }
+                            },
                         ]
                     }
-                );
+                )
             }
 
             messages.push(
@@ -189,27 +324,28 @@
                             }
                         }
                     ]
-                }
-            );
+                })
+
 
             const response = await fetch(requestUrl, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    "Authorization": `Bearer ${apiKey}` // Используем ваш xAI ключ
+                    "Authorization": `Bearer ${apiKey}`
                 },
                 body: JSON.stringify({
-                    "model": "deepseek-chat", // Модель из примера xAI
+                    "model": "qwen/qwen2.5-vl-72b-instruct:free",
                     "messages": messages,
-                    "max_tokens": 4096, // Оставляем, но проверьте лимиты
-                    "stream": true, // Добавлено из примера
-                    "temperature": 1 // Добавлено из примера
+                    "max_tokens": 4096
                 })
             });
 
-            return await response.text(); // Возвращаем текст для совместимости с существующей логикой
+            return await response.text();
+
         }
-    });
+    })
+    ;
 </script>
 </body>
+
 </html>
