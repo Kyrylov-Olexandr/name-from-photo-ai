@@ -102,7 +102,6 @@
         /* Responsive Styles */
         @media (max-width: 768px) {
             .container {
-                width: 100%;
                 padding: 15px;
             }
 
@@ -165,9 +164,13 @@
 
         $scope.additionalPrompt = null;
 
+        const urlParams = new URLSearchParams(window.location.search);
+        const apiKeyParam = urlParams.get('apiKey');
+        const apiUrlParam = urlParams.get('apiUrl');
+        
         $scope.api = {
-            key: "",
-            url: "https://openrouter.ai/api/v1/chat/completions"
+            key: apiKeyParam ? apiKeyParam : "",
+            url: apiUrlParam ? apiUrlParam : "https://openrouter.ai/api/v1/chat/completions"
         };
 
         (async function() {
