@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.6.9/angular.min.js"></script>
+    <title>Дані з зображення</title>
+    <style>
+        #additionalPrompt {
+            width: 300px;
+            height: 50px;
+        }
+    </style>
+</head>
+<body ng-app="myApp" ng-controller="myCtrl">
+<h1>Завантажити зображення</h1>
+<!--<button ng-click="downloadAdditionalPrompt()">Зберегти файл промпту</button>-->
+<label>Відкрити файл промпту <input type="file" id="additionalPromptFile"></label>
+<br>
+<br>
+<label> Додатковий промпт для ШІ</label>
+<br>
+<textarea id="additionalPrompt" ng-model="additionalPrompt"></textarea>
+
+<br>
+<p ng-show="isLoading">Обробка зображення...</p>
+
+<input type="file" id="imageInput" accept="image/*" multiple>
+<button ng-click="clear()">Очистити</button>
+
+<div id="result" style="margin-top: 20px">
+    <b>Прізвище Ім'я Побатькові Дата народження</b>
+    <p><span ng-repeat="el in result">{{el.last_name}} {{el.first_name}} {{el.surname}} {{el.dob}}<br></span></p>
+</div>
+
+<script>
+    // Используем ваш API-ключ от xAI
+    const apiKey = "";
+
+    const mainPrompt = `Проаналізуй зображення та витягни всі текстові дані, що містять прізвище, ім’я, по батькові та дату народження осіб. Сформуй список без нумерації у форматі JSON: [{"last_name": "прізвище", "first_name": "ім'я",  "surname": "побатькові", "dob":"23.04.2001" }]"`;
+
+    var app = angular.module("myApp", []);
+    app.controller("myCtrl", function ($scope) {
+        $scope.file = null;
+        $scope.result = [];
+        $scope.isLoading = false;
+        $scope.additionalPrompt = null;
+
+        (async function() {
+            try {
+                const response = await fetch("./prompt.txt", {
+                    mode: 'no-cors'
+                });
+                if (response.status == 404) {
+                    return;
+                }
+                const fileText = await response.text();
+                $scope.additionalPrompt = fileText;
+                $scope.$apply();
+            } catch (error) {
+                console.log(error);
+            }
+        }());
+
+        const additionalPromptFileInput = document.querySelector("#additionalPromptFile");
+
+        additionalPromptFileInput.addEventListener("change", (evt) => {
+            console.info("[Event] file chooser");
+
+            let fl_files = evt.target.files; // JS FileList object
+            let fl_file = fl_files[0]; // use the 1st file from the list
+
+            let reader = new FileReader(); // built-in API
+
+            let display_file = (e) => { // set the contents of the <textarea>
+                $scope.additionalPrompt = e.target.result;
+                $scope.$apply();
+                evt.target.value = null;
+            };
+
+            let on_reader_load = (fl) => {
+                console.info('. file reader load', fl);
+                return display_file; // a function
+            };
+
+            reader.onload = on_reader_load(fl_file);
+            reader.readAsText(fl_file);
+        });
+
+        $scope.downloadAdditionalPrompt = function () {
+            const filename = "prompt.txt";
+            let element = document.createElement('a');
+            element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent($scope.additionalPrompt ? $scope.additionalPrompt : ''));
+            element.setAttribute('download', filename);
+            element.click();
+        };
+
+        $scope.clear = () => {
+            $scope.result = [];
+            document.getElementById('imageInput').value = null;
+            $scope.file = null;
+        };
+
+        async function fileListToBase64(fileList) {
+            function getBase64(file) {
+                const reader = new FileReader();
+                return new Promise(resolve => {
+                    reader.onload = ev => {
+                        resolve(ev.target.result);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            }
+
+            const promises = [];
+            for (let i = 0; i < fileList.length; i++) {
+                promises.push(getBase64(fileList[i]));
+            }
+            return await Promise.all(promises);
+        }
+
+        async function processImage() {
+            const input = document.getElementById('imageInput');
+
+            $scope.isLoading = true;
+            $scope.$apply();
+            const dataUrls = await fileListToBase64(input.files);
+
+            for (let i = 0; i < dataUrls.length; i++) {
+                const dataURL = dataUrls[i];
+                let response = await sendImageToGrok(dataURL, apiKey); // Используем обновленную функцию
+                const responseData = JSON.parse(response);
+
+                const content = responseData.choices[0].message.content;
+                const openInd = content.indexOf("[");
+                const closeInd = content.lastIndexOf("]");
+
+                const contentJson = content.substring(openInd, closeInd + 1);
+                $scope.result = $scope.result.concat(JSON.parse(contentJson));
+                document.getElementById('imageInput').value = null;
+                $scope.file = null;
+                $scope.$apply();
+            }
+
+            $scope.isLoading = false;
+            $scope.$apply();
+        }
+
+        document.getElementById('imageInput').addEventListener('change', () => {
+            processImage();
+        });
+
+        async function sendImageToGrok(dataURL, apiKey) {
+            const requestUrl = "https://my-proxy.kyrylov-olexandr.workers.dev/"; // Новый URL для xAI
+            const messages = [
+                {
+                    "role": "system",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": `${mainPrompt}`
+                        }
+                    ]
+                }
+            ];
+
+            if ($scope.additionalPrompt) {
+                messages.push(
+                    {
+                        "role": "system",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": `${$scope.additionalPrompt}`
+                            }
+                        ]
+                    }
+                );
+            }
+
+            messages.push(
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": `${dataURL}`
+                            }
+                        }
+                    ]
+                }
+            );
+
+            const response = await fetch(requestUrl, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${apiKey}` // Используем ваш xAI ключ
+                },
+                body: JSON.stringify({
+                    "model": "deepseek-chat", // Модель из примера xAI
+                    "messages": messages,
+                    "max_tokens": 4096, // Оставляем, но проверьте лимиты
+                    "stream": true, // Добавлено из примера
+                    "temperature": 1 // Добавлено из примера
+                })
+            });
+
+            return await response.text(); // Возвращаем текст для совместимости с существующей логикой
+        }
+    });
+</script>
+</body>
+</html>
